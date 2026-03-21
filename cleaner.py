@@ -78,6 +78,98 @@ def get_total_size(files):
     
     return total_size
 
+def delete_files(files):
+    """
+    Tenta apagar os arquivos infromados de forma segura.
+    
+    Parâmetros:
+        files (list): lista com os caminhos dos arquivos
+    
+    Retorno:
+        tuple:
+            deleted_count (int): quantidade de arquivos apagados
+            failed_count (int): quantidade de arquivos que não puderam ser apagados
+            freed_space (int): espaço liberado em bytes
+    """
+
+    deleted_count = 0
+    failed_count = 0
+    freed_space = 0
+
+    for file_path in files:
+        try:
+            # Pega o tamanho do arquivo antes de apagá-lo
+            file_size = os.path.getsize(file_path)
+
+            # Tenta excluir o arquivo
+            os.remove(file_path)
+
+            # Se conseguiu apagar, atualiza os contadores
+            deleted_count += 1
+            freed_space += file_size
+        
+        except FileNotFoundError:
+            # O arquivo pode ter sido removido por outro processo
+            failed_count += 1
+        
+        except PermissionError:
+            # Arquivo em uso ou sem permissão para exclusão
+            failed_count += 1
+
+        except OSError:
+            # Outros erros do sistema operacional
+            failed_count += 1
+        
+        except Exception as e:
+            print(f"[ERRO] Falha inesperada ao excluir {file_path}: {e}")
+            failed_count += 1
+    
+    return deleted_count, failed_count, freed_space
+
+def remove_empty_folders(temp_paths):
+    """
+    Tenta remover subpastas vazias dentro das pastas temporárias.
+
+    Parâmetros:
+        temp_paths (list): lista com os caminhos das pastas temporárias
+
+    Retorno:
+        int: quantidade de subpastas vazias removidas
+    """
+
+    removed_count = 0
+
+    for path in temp_paths:
+        # Ignora caminhos vazios ou inexistentes
+        if not path or not os.path.exists(path):
+            continue
+
+        # Percorre de baixo para cima para tentar remover primeiro as pastas mais internas
+        for root, dirs, files in os.walk(path, topdown=False):
+            # Não remove a pasta temporária principal
+            if root == path:
+                continue
+
+            try:
+                # Verifica no momento real da tentativa se a pasta está vazia
+                if not os.listdir(root):
+                    os.rmdir(root)
+                    removed_count += 1
+                
+            except PermissionError:
+                # Sem permissão para remover a pasta
+                continue
+
+            except OSError:
+                # A pasta pode não estar vazia ou estar em uso
+                continue
+
+            except Exception:
+                # Qualquer outro erro inesperado é ignorado
+                continue
+
+    return removed_count
+
 def format_size(size_bytes):
     """
     Converte um tamanho em bytes para KB, MB ou GB.
